@@ -1,3 +1,18 @@
 spring:
   application:
     name: "1БКС24001"
+  datasource:
+    url: jdbc:postgresql://localhost:5432/museum_db
+    # логин и пароль берутся из переменных окружения, в коде их нет
+    username: ${PG_SERVICE_USER}
+    password: ${PG_SERVICE_PASS}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  sql:
+    init:
+      mode: never
+  # чтобы в ответе с ошибкой было видно причину
+  web:
+    error:
+      include-message: always
