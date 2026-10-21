@@ -3,8 +3,11 @@ package ru.zidan.rbpo.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.zidan.rbpo.dto.ExhibitPlacementDto;
 import ru.zidan.rbpo.entity.Exhibit;
 import ru.zidan.rbpo.entity.ExhibitPlacement;
+import ru.zidan.rbpo.entity.Exhibition;
 import ru.zidan.rbpo.entity.ExhibitionHall;
 import ru.zidan.rbpo.repository.ExhibitPlacementRepository;
 import ru.zidan.rbpo.repository.ExhibitRepository;
@@ -22,117 +25,132 @@ public class ExhibitPlacementService {
     private final ExhibitRepository exhibitRepository;
     private final ExhibitionRepository exhibitionRepository;
     private final ExhibitionHallRepository hallRepository;
+    private final DtoMapper mapper;
 
-    public List<ExhibitPlacement> getAll() {
-        return placementRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<ExhibitPlacementDto> getAll() {
+        return mapper.toPlacementDtos(placementRepository.findAll());
     }
 
-    public ExhibitPlacement getById(Long id) {
-        return placementRepository.findById(id);
+    @Transactional(readOnly = true)
+    public ExhibitPlacementDto getById(Long id) {
+        ExhibitPlacement p = placementRepository.findById(id).orElse(null);
+        if (p == null) {
+            return null;
+        }
+        return mapper.toDto(p);
     }
 
-    public HttpStatus checkCreate(ExhibitPlacement data) {
+    public HttpStatus checkCreate(ExhibitPlacementDto data) {
         if (data.getExhibitId() == null || data.getExhibitionId() == null || data.getHallId() == null) {
             return HttpStatus.BAD_REQUEST;
         }
-        return check(data.getExhibitId(), data.getExhibitionId(), data.getHallId(), null);
+        Exhibit exhibit = exhibitRepository.findById(data.getExhibitId()).orElse(null);
+        Exhibition exhibition = exhibitionRepository.findById(data.getExhibitionId()).orElse(null);
+        ExhibitionHall hall = hallRepository.findById(data.getHallId()).orElse(null);
+        if (exhibit == null || exhibition == null || hall == null) {
+            return HttpStatus.BAD_REQUEST;
+        }
+
+        // состав можно менять только пока выставка запланирована
+        if (!exhibition.getStatus().equals("PLANNED")) {
+            return HttpStatus.CONFLICT;
+        }
+        if (exhibit.getCondition().equals("IN_RESTORATION")) {
+            return HttpStatus.CONFLICT;
+        }
+        if (busyInSameTime(exhibit, exhibition)) {
+            return HttpStatus.CONFLICT;
+        }
+        return checkHall(exhibit, exhibition, hall, null);
     }
 
-    public HttpStatus checkUpdate(Long id, ExhibitPlacement data) {
-        ExhibitPlacement p = placementRepository.findById(id);
+    // в размещении можно поменять только зал
+    public HttpStatus checkUpdate(Long id, ExhibitPlacementDto data) {
+        if (data.getExhibitId() != null || data.getExhibitionId() != null || data.getMountingStatus() != null) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        if (data.getHallId() == null) {
+            return null; // менять нечего
+        }
+        ExhibitPlacement p = placementRepository.findById(id).orElse(null);
+        if (!p.getExhibition().getStatus().equals("PLANNED")) {
+            return HttpStatus.CONFLICT;
+        }
+        ExhibitionHall hall = hallRepository.findById(data.getHallId()).orElse(null);
+        if (hall == null) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return checkHall(p.getExhibit(), p.getExhibition(), hall, id);
+    }
 
-        Long exhibitId = p.getExhibitId();
-        Long exhibitionId = p.getExhibitionId();
-        Long hallId = p.getHallId();
-        boolean changed = false;
-        if (data.getExhibitId() != null) {
-            exhibitId = data.getExhibitId();
-            changed = true;
-        }
-        if (data.getExhibitionId() != null) {
-            exhibitionId = data.getExhibitionId();
-            changed = true;
-        }
-        if (data.getHallId() != null) {
-            hallId = data.getHallId();
-            changed = true;
-        }
-
-        // проверяю заново только если поменяли экспонат, выставку или зал,
-        // если меняют только статус монтажа то проверять нечего
-        if (changed) {
-            return check(exhibitId, exhibitionId, hallId, id);
+    // с открытой выставки экспонат просто так не убрать
+    public HttpStatus checkDelete(Long id) {
+        ExhibitPlacement p = placementRepository.findById(id).orElse(null);
+        if (p.getExhibition().getStatus().equals("OPEN")) {
+            return HttpStatus.CONFLICT;
         }
         return null;
     }
 
-    public ExhibitPlacement create(ExhibitPlacement data) {
+    @Transactional
+    public ExhibitPlacementDto create(ExhibitPlacementDto data) {
         ExhibitPlacement p = new ExhibitPlacement();
-        p.setExhibitId(data.getExhibitId());
-        p.setExhibitionId(data.getExhibitionId());
-        p.setHallId(data.getHallId());
-        if (data.getMountingStatus() == null) {
-            p.setMountingStatus("PLANNED");
-        } else {
-            p.setMountingStatus(data.getMountingStatus());
-        }
+        p.setExhibit(exhibitRepository.findById(data.getExhibitId()).orElse(null));
+        p.setExhibition(exhibitionRepository.findById(data.getExhibitionId()).orElse(null));
+        p.setHall(hallRepository.findById(data.getHallId()).orElse(null));
+        p.setMountingStatus("PLANNED");
         p.setCreatedAt(LocalDateTime.now());
-        return placementRepository.add(p);
+        return mapper.toDto(placementRepository.save(p));
     }
 
-    public ExhibitPlacement update(Long id, ExhibitPlacement data) {
-        ExhibitPlacement p = placementRepository.findById(id);
-
-        if (data.getExhibitId() != null) {
-            p.setExhibitId(data.getExhibitId());
-        }
-        if (data.getExhibitionId() != null) {
-            p.setExhibitionId(data.getExhibitionId());
-        }
+    @Transactional
+    public ExhibitPlacementDto update(Long id, ExhibitPlacementDto data) {
+        ExhibitPlacement p = placementRepository.findById(id).orElse(null);
         if (data.getHallId() != null) {
-            p.setHallId(data.getHallId());
+            p.setHall(hallRepository.findById(data.getHallId()).orElse(null));
         }
-        if (data.getMountingStatus() != null) {
-            p.setMountingStatus(data.getMountingStatus());
-        }
-        return p;
+        return mapper.toDto(placementRepository.save(p));
     }
 
     public void delete(Long id) {
         placementRepository.deleteById(id);
     }
 
-    // проверки перед тем как поставить экспонат в зал.
+    // экспонат не может быть сразу на двух активных выставках, если их даты пересекаются
+    private boolean busyInSameTime(Exhibit exhibit, Exhibition target) {
+        List<ExhibitPlacement> list = placementRepository.findByExhibitId(exhibit.getId());
+        for (ExhibitPlacement other : list) {
+            Exhibition ex = other.getExhibition();
+            if (ex.getId().equals(target.getId())) {
+                return true; // уже есть на этой выставке
+            }
+            boolean active = ex.getStatus().equals("PLANNED") || ex.getStatus().equals("OPEN");
+            boolean datesCross = !ex.getEndDate().isBefore(target.getStartDate())
+                    && !ex.getStartDate().isAfter(target.getEndDate());
+            if (active && datesCross) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // зал должен быть открыт и в нем должно хватить места.
     // placementId - это id размещения которое меняем (при создании null),
     // его не считаю, иначе экспонат посчитается два раза
-    private HttpStatus check(Long exhibitId, Long exhibitionId, Long hallId, Long placementId) {
-        Exhibit exhibit = exhibitRepository.findById(exhibitId);
-        if (exhibit == null) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        if (exhibitionRepository.findById(exhibitionId) == null) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        ExhibitionHall hall = hallRepository.findById(hallId);
-        if (hall == null) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        // зал закрыт (например ремонт)
+    private HttpStatus checkHall(Exhibit exhibit, Exhibition exhibition, ExhibitionHall hall, Long placementId) {
         if (!hall.getAvailable()) {
             return HttpStatus.CONFLICT;
         }
 
         // считаю сколько места в зале уже занято экспонатами этой же выставки
         double used = 0;
-        List<ExhibitPlacement> list = placementRepository.findByHallId(hallId);
+        List<ExhibitPlacement> list = placementRepository.findByExhibitionIdAndHallId(exhibition.getId(), hall.getId());
         for (ExhibitPlacement other : list) {
             if (other.getId().equals(placementId)) {
                 continue;
             }
-            if (other.getExhibitionId().equals(exhibitionId)) {
-                Exhibit e = exhibitRepository.findById(other.getExhibitId());
-                used = used + e.getRequiredArea();
-            }
+            used = used + other.getExhibit().getRequiredArea();
         }
 
         double free = hall.getArea() - used;

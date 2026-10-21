@@ -62,7 +62,18 @@ public class ExhibitController {
         if (exhibitService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        var error = exhibitService.checkDelete(id);
+        if (error != null) {
+            return new ResponseEntity<>(error);
+        }
         exhibitService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // бизнес-операция: отправить экспонат на реставрацию
+    // /api/exhibits/3/restoration
+    @PostMapping("/{id}/restoration")
+    public ResponseEntity<Exhibit> sendToRestoration(@PathVariable Long id) {
+        return ResponseEntity.ok().body(exhibitService.sendToRestoration(id));
     }
 }

@@ -1,20 +1,44 @@
 package ru.zidan.rbpo.entity;
 
-import lombok.Data;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 // выставка
-@Data
+@Entity
+@Table(name = "exhibitions", schema = "app")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Exhibition {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
     private LocalDate startDate;
+
+    @Column(nullable = false)
     private LocalDate endDate;
+
+    // PLANNED, OPEN, CLOSED или CANCELLED
+    @Column(nullable = false)
     private String status;
-    private Long curatorId; // id пользователя, который куратор
+
+    // у одного куратора может быть много выставок
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "curator_id")
+    private User curator;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
 }

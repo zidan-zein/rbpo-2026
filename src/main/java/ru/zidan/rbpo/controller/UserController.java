@@ -59,6 +59,10 @@ public class UserController {
         if (userService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        var error = userService.checkDelete(id);
+        if (error != null) {
+            return new ResponseEntity<>(error);
+        }
         userService.delete(id);
         return ResponseEntity.noContent().build();
     }

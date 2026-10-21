@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.zidan.rbpo.entity.Exhibition;
+import ru.zidan.rbpo.dto.ExhibitionDto;
 import ru.zidan.rbpo.service.ExhibitionService;
 
 import java.util.List;
@@ -17,13 +17,13 @@ public class ExhibitionController {
     private final ExhibitionService exhibitionService;
 
     @GetMapping
-    public ResponseEntity<List<Exhibition>> getAll() {
+    public ResponseEntity<List<ExhibitionDto>> getAll() {
         return ResponseEntity.ok().body(exhibitionService.getAll());
     }
 
     // /api/exhibitions/1
     @GetMapping("/{id}")
-    public ResponseEntity<Exhibition> getById(@PathVariable Long id) {
+    public ResponseEntity<ExhibitionDto> getById(@PathVariable Long id) {
         var exhibition = exhibitionService.getById(id);
         if (exhibition == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -32,7 +32,7 @@ public class ExhibitionController {
     }
 
     @PostMapping
-    public ResponseEntity<Exhibition> create(@RequestBody Exhibition exhibition) {
+    public ResponseEntity<ExhibitionDto> create(@RequestBody ExhibitionDto exhibition) {
         var error = exhibitionService.checkCreate(exhibition);
         if (error != null) {
             return new ResponseEntity<>(error);
@@ -41,7 +41,7 @@ public class ExhibitionController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Exhibition> update(@PathVariable Long id, @RequestBody Exhibition exhibition) {
+    public ResponseEntity<ExhibitionDto> update(@PathVariable Long id, @RequestBody ExhibitionDto exhibition) {
         if (exhibitionService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -57,7 +57,35 @@ public class ExhibitionController {
         if (exhibitionService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        var error = exhibitionService.checkDelete(id);
+        if (error != null) {
+            return new ResponseEntity<>(error);
+        }
         exhibitionService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // дальше бизнес-операции, если их нельзя выполнить, сервис вернет 409 с причиной
+
+    // /api/exhibitions/1/open
+    @PostMapping("/{id}/open")
+    public ResponseEntity<ExhibitionDto> open(@PathVariable Long id) {
+        return ResponseEntity.ok().body(exhibitionService.open(id));
+    }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<ExhibitionDto> close(@PathVariable Long id) {
+        return ResponseEntity.ok().body(exhibitionService.close(id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ExhibitionDto> cancel(@PathVariable Long id) {
+        return ResponseEntity.ok().body(exhibitionService.cancel(id));
+    }
+
+    // /api/exhibitions/3/curator/2
+    @PutMapping("/{id}/curator/{userId}")
+    public ResponseEntity<ExhibitionDto> changeCurator(@PathVariable Long id, @PathVariable Long userId) {
+        return ResponseEntity.ok().body(exhibitionService.changeCurator(id, userId));
     }
 }

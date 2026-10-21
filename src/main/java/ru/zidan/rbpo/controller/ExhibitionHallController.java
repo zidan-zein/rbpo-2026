@@ -44,7 +44,7 @@ public class ExhibitionHallController {
         if (hallService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        var error = hallService.checkUpdate(hall);
+        var error = hallService.checkUpdate(id, hall);
         if (error != null) {
             return new ResponseEntity<>(error);
         }
@@ -55,6 +55,10 @@ public class ExhibitionHallController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (hallService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        var error = hallService.checkDelete(id);
+        if (error != null) {
+            return new ResponseEntity<>(error);
         }
         hallService.delete(id);
         return ResponseEntity.noContent().build();

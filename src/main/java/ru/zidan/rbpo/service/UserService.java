@@ -3,6 +3,7 @@ package ru.zidan.rbpo.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.zidan.rbpo.entity.Exhibition;
 import ru.zidan.rbpo.entity.User;
 import ru.zidan.rbpo.repository.ExhibitionRepository;
@@ -24,11 +25,14 @@ public class UserService {
     }
 
     public User getById(Long id) {
-        return userRepository.findById(id);
+        return userRepository.findById(id).orElse(null);
     }
 
     public HttpStatus checkCreate(User data) {
         if (data.getUsername() == null || data.getUsername().isBlank()) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        if (data.getFullName() == null || data.getFullName().isBlank()) {
             return HttpStatus.BAD_REQUEST;
         }
         // такой username уже есть - это конфликт
@@ -48,6 +52,20 @@ public class UserService {
                 return HttpStatus.CONFLICT;
             }
         }
+        if (data.getFullName() != null && data.getFullName().isBlank()) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return null;
+    }
+
+    // нельзя удалить куратора открытой выставки, у открытой выставки куратор должен быть
+    public HttpStatus checkDelete(Long id) {
+        List<Exhibition> list = exhibitionRepository.findByCuratorId(id);
+        for (Exhibition ex : list) {
+            if (ex.getStatus().equals("OPEN")) {
+                return HttpStatus.CONFLICT;
+            }
+        }
         return null;
     }
 
@@ -59,11 +77,11 @@ public class UserService {
         user.setFullName(data.getFullName());
         user.setEmail(data.getEmail());
         user.setCreatedAt(LocalDateTime.now());
-        return userRepository.add(user);
+        return userRepository.save(user);
     }
 
     public User update(Long id, User data) {
-        User user = userRepository.findById(id);
+        User user = userRepository.findById(id).orElse(null);
 
         // PATCH: меняю только то что прислали, null значит поле не трогаем
         if (data.getUsername() != null) {
@@ -75,16 +93,12 @@ public class UserService {
         if (data.getEmail() != null) {
             user.setEmail(data.getEmail());
         }
-        return user;
+        return userRepository.save(user);
     }
 
+    @Transactional
     public void delete(Long id) {
-        // пользователь мог быть куратором, тогда у выставки убираю ссылку на него,
-        // чтобы не осталось id несуществующего пользователя
-        List<Exhibition> list = exhibitionRepository.findByCuratorId(id);
-        for (Exhibition ex : list) {
-            ex.setCuratorId(null);
-        }
+        // у выставок curator_id станет null сам, это ON DELETE SET NULL в базе
         userRepository.deleteById(id);
     }
 }

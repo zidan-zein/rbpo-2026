@@ -1,73 +1,19 @@
 package ru.zidan.rbpo.repository;
 
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
 import ru.zidan.rbpo.entity.ExhibitPlacement;
 
-import java.util.ArrayList;
 import java.util.List;
 
-@Repository
-public class ExhibitPlacementRepository {
+public interface ExhibitPlacementRepository extends JpaRepository<ExhibitPlacement, Long> {
 
-    private List<ExhibitPlacement> placements = new ArrayList<>();
-    private long nextId = 1;
+    List<ExhibitPlacement> findByExhibitId(Long exhibitId);
 
-    public List<ExhibitPlacement> findAll() {
-        return new ArrayList<>(placements);
-    }
+    List<ExhibitPlacement> findByExhibitionId(Long exhibitionId);
 
-    public ExhibitPlacement findById(Long id) {
-        for (ExhibitPlacement p : placements) {
-            if (p.getId().equals(id)) {
-                return p;
-            }
-        }
-        return null;
-    }
+    List<ExhibitPlacement> findByHallId(Long hallId);
 
-    // три метода ниже нужны, чтобы при удалении найти связанные размещения
+    // размещения этой выставки в этом зале, нужно чтобы посчитать занятую площадь
+    List<ExhibitPlacement> findByExhibitionIdAndHallId(Long exhibitionId, Long hallId);
 
-    public List<ExhibitPlacement> findByExhibitId(Long exhibitId) {
-        List<ExhibitPlacement> result = new ArrayList<>();
-        for (ExhibitPlacement p : placements) {
-            if (p.getExhibitId().equals(exhibitId)) {
-                result.add(p);
-            }
-        }
-        return result;
-    }
-
-    public List<ExhibitPlacement> findByExhibitionId(Long exhibitionId) {
-        List<ExhibitPlacement> result = new ArrayList<>();
-        for (ExhibitPlacement p : placements) {
-            if (p.getExhibitionId().equals(exhibitionId)) {
-                result.add(p);
-            }
-        }
-        return result;
-    }
-
-    public List<ExhibitPlacement> findByHallId(Long hallId) {
-        List<ExhibitPlacement> result = new ArrayList<>();
-        for (ExhibitPlacement p : placements) {
-            if (p.getHallId().equals(hallId)) {
-                result.add(p);
-            }
-        }
-        return result;
-    }
-
-    public ExhibitPlacement add(ExhibitPlacement placement) {
-        placement.setId(nextId);
-        nextId++;
-        placements.add(placement);
-        return placement;
-    }
-
-    public void deleteById(Long id) {
-        ExhibitPlacement p = findById(id);
-        if (p != null) {
-            placements.remove(p);
-        }
-    }
 }
