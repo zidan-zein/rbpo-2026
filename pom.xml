@@ -16,6 +16,9 @@
 
     <properties>
         <java.version>25</java.version>
+        <tomcat.version>11.0.27</tomcat.version>
+        <jackson-bom.version>3.1.8</jackson-bom.version>
+        <postgresql.version>42.7.14</postgresql.version>
         <rbpo.build.directory>${project.basedir}/target</rbpo.build.directory>
     </properties>
 
@@ -28,6 +31,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -37,6 +46,20 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- вместо старого android-json в тестах -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20260814</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- обновление библиотеки, которую использует JSONPath в тестах -->
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>9.11.1</version>
             <scope>test</scope>
         </dependency>
 

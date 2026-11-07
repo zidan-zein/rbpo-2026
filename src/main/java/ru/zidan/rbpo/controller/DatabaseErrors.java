@@ -10,7 +10,7 @@ import java.util.Map;
 public class DatabaseErrors {
     // Вместо SQL и значений из запроса возвращаю короткий ответ.
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<?> conflict(DataIntegrityViolationException error) {
+    public ResponseEntity<Map<String, String>> conflict() {
         return ResponseEntity.status(409).body(Map.of("error", "Data conflict"));
     }
 }

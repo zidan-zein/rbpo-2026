@@ -1,6 +1,7 @@
 package ru.zidan.rbpo.security;
 
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import ru.zidan.rbpo.repository.UserRepository;
@@ -11,6 +12,7 @@ public class DatabaseUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
+    @NullMarked
     public UserDetails loadUserByUsername(String username) {
         var user = userRepository.findByUsername(username);
         if (user == null || user.getPassword() == null) {

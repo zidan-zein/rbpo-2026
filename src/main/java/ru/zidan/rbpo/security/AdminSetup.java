@@ -1,6 +1,7 @@
 package ru.zidan.rbpo.security;
 
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +21,7 @@ public class AdminSetup implements CommandLineRunner {
     private String password;
 
     @Override
+    @NullMarked
     public void run(String... args) {
         if (username.isBlank() || password.isBlank()) {
             return;
