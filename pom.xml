@@ -19,6 +19,7 @@
         <tomcat.version>11.0.27</tomcat.version>
         <jackson-bom.version>3.1.8</jackson-bom.version>
         <postgresql.version>42.7.14</postgresql.version>
+        <logback.version>1.6.6</logback.version>
         <rbpo.build.directory>${project.basedir}/target</rbpo.build.directory>
     </properties>
 
