@@ -1,0 +1,1649 @@
+{
+  "info": {
+    "name": "РБПО Задание 4 — Музейные выставки",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run in order with the private local environment. Basic Auth + CSRF, USER/ADMIN, five business operations and cleanup."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8085"
+    },
+    {
+      "key": "readerPassword",
+      "value": "Museum-Demo-2026!"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Получить CSRF и начать сценарий",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/csrf"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('csrfToken', pm.response.json().token);",
+              "pm.collectionVariables.set('newReader', 'visitor_' + Date.now());",
+              "pm.collectionVariables.set('suffix', Date.now().toString());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Без Basic: 401",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibits"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Слабый пароль: 400",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"weak_{{suffix}}\", \"fullName\": \"Weak\", \"password\": \"123\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Регистрация не даёт ADMIN",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"{{newReader}}\", \"fullName\": \"Visitor\", \"password\": \"{{readerPassword}}\", \"role\": \"ADMIN\", \"enabled\": false}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "var user = pm.response.json();",
+              "pm.collectionVariables.set('registeredId', user.id);",
+              "pm.test('USER, enabled, без password', function () { pm.expect(user.role).to.eql('USER'); pm.expect(user.enabled).to.eql(true); pm.expect(user).not.to.have.property('password'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Повторная регистрация: 409",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"{{newReader}}\", \"fullName\": \"Visitor\", \"password\": \"{{readerPassword}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Basic пользователя",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 USER читает экспонаты",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibits"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 USER не видит список учётных записей",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 USER не может добавить экспонат",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Denied\", \"requiredArea\": 1}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 ADMIN без CSRF: 403",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Denied\", \"requiredArea\": 1}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 USER не может повысить права",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/{{registeredId}}/access",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"role\": \"ADMIN\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 ADMIN блокирует USER",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/{{registeredId}}/access",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"enabled\": false}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Заблокированный USER: 401",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 ADMIN разблокирует USER",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/{{registeredId}}/access",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"enabled\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 USER снова входит",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 ADMIN получает пользователей",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test('Нет хешей паролей', function () { pm.response.json().forEach(function(u) { pm.expect(u).not.to.have.property('password'); }); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Создать зал",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibition-halls",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Hall_{{suffix}}\", \"area\": 100, \"available\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('hallId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Создать экспонат",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Vase_{{suffix}}\", \"requiredArea\": 5, \"condition\": \"GOOD\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('exhibitId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Создать выставку без куратора",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Show_{{suffix}}\", \"startDate\": \"2026-01-01\", \"endDate\": \"2099-12-31\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('exhibitionId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Нет куратора: бизнес-отказ 409",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}/open"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 Назначить куратора",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}/curator/{{registeredId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Разместить экспонат",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibit-placements",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"exhibitId\": \"{{exhibitId}}\", \"exhibitionId\": \"{{exhibitionId}}\", \"hallId\": \"{{hallId}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('placementId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 USER не может открыть выставку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}/open"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 ADMIN открывает выставку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}/open"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Реставрация во время выставки: 409",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits/{{exhibitId}}/restoration"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 ADMIN закрывает выставку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}/close"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 Реставрация после закрытия",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits/{{exhibitId}}/restoration"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Ещё одна запланированная выставка",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Cancel_{{suffix}}\", \"startDate\": \"2026-01-01\", \"endDate\": \"2099-12-31\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('plannedId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Отменить запланированную выставку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{plannedId}}/cancel"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET exhibits",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibits"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET exhibitions",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibitions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET exhibition-halls",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibition-halls"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET exhibit-placements",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{newReader}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/api/exhibit-placements"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "PATCH hall",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibition-halls/{{hallId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"area\": 110}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE placement",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibit-placements/{{placementId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE closed exhibition",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{exhibitionId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE cancelled exhibition",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibitions/{{plannedId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE exhibit",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibits/{{exhibitId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE hall",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/exhibition-halls/{{hallId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE demo user",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/{{registeredId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

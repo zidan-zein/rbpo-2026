@@ -2,3 +2,8 @@ target/
 .idea/
 *.iml
 .env
+.env.*
+!.env.example
+*.log
+.mvn/maven.config
+classpath-qa.txt

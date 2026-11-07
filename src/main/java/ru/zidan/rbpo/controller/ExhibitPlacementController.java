@@ -1,6 +1,7 @@
 package ru.zidan.rbpo.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import ru.zidan.rbpo.service.ExhibitPlacementService;
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @RequestMapping("/api/exhibit-placements")
 @RequiredArgsConstructor
 public class ExhibitPlacementController {
@@ -33,6 +35,7 @@ public class ExhibitPlacementController {
     // тут сервис может вернуть 400 (нет такого экспоната/выставки/зала)
     // или 409 (выставка уже не планируется, экспонат занят, зал закрыт или не хватает места)
     @PostMapping
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<ExhibitPlacementDto> create(@RequestBody ExhibitPlacementDto placement) {
         var error = placementService.checkCreate(placement);
         if (error != null) {
@@ -43,6 +46,7 @@ public class ExhibitPlacementController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<ExhibitPlacementDto> update(@PathVariable Long id, @RequestBody ExhibitPlacementDto placement) {
         if (placementService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -55,6 +59,7 @@ public class ExhibitPlacementController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (placementService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);

@@ -2,7 +2,7 @@ spring:
   application:
     name: "1БКС24001"
   datasource:
-    url: jdbc:postgresql://localhost:5432/museum_db
+    url: ${PG_URL}
     # логин и пароль берутся из переменных окружения, в коде их нет
     username: ${PG_SERVICE_USER}
     password: ${PG_SERVICE_PASS}
@@ -16,3 +16,10 @@ spring:
   web:
     error:
       include-message: always
+
+server:
+  address: 127.0.0.1
+  port: ${MUSEUM_PORT:8085}
+  error:
+    include-stacktrace: never
+    include-exception: false

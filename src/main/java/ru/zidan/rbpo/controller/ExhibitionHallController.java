@@ -1,6 +1,7 @@
 package ru.zidan.rbpo.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import ru.zidan.rbpo.service.ExhibitionHallService;
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @RequiredArgsConstructor
 @RequestMapping("/api/exhibition-halls")
 public class ExhibitionHallController {
@@ -31,6 +33,7 @@ public class ExhibitionHallController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<ExhibitionHall> create(@RequestBody ExhibitionHall hall) {
         var error = hallService.checkCreate(hall);
         if (error != null) {
@@ -40,6 +43,7 @@ public class ExhibitionHallController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<ExhibitionHall> update(@PathVariable Long id, @RequestBody ExhibitionHall hall) {
         if (hallService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -52,6 +56,7 @@ public class ExhibitionHallController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (hallService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);

@@ -1,6 +1,9 @@
 package ru.zidan.rbpo.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import ru.zidan.rbpo.security.PasswordRules;
+import ru.zidan.rbpo.dto.UserAccessRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,7 @@ public class UserService {
 
     // репозитории передает спринг через конструктор (его делает lombok)
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     private final ExhibitionRepository exhibitionRepository;
 
     public List<User> getAll() {
@@ -29,6 +33,9 @@ public class UserService {
     }
 
     public HttpStatus checkCreate(User data) {
+        if (!PasswordRules.valid(data.getPassword())) {
+            return HttpStatus.BAD_REQUEST;
+        }
         if (data.getUsername() == null || data.getUsername().isBlank()) {
             return HttpStatus.BAD_REQUEST;
         }
@@ -73,6 +80,9 @@ public class UserService {
         // делаю новый объект и переношу только нужные поля,
         // id и время из запроса не беру, их ставит сервер
         User user = new User();
+        user.setPassword(passwordEncoder.encode(data.getPassword()));
+        user.setRole("USER");
+        user.setEnabled(true);
         user.setUsername(data.getUsername());
         user.setFullName(data.getFullName());
         user.setEmail(data.getEmail());
@@ -92,6 +102,17 @@ public class UserService {
         }
         if (data.getEmail() != null) {
             user.setEmail(data.getEmail());
+        }
+        return userRepository.save(user);
+    }
+
+    public User changeAccess(Long id, UserAccessRequest data) {
+        User user = userRepository.findById(id).orElseThrow();
+        if (data.getRole() != null) {
+            user.setRole(data.getRole());
+        }
+        if (data.getEnabled() != null) {
+            user.setEnabled(data.getEnabled());
         }
         return userRepository.save(user);
     }

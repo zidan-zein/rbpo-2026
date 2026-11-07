@@ -1,15 +1,18 @@
 package ru.zidan.rbpo.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.zidan.rbpo.entity.User;
+import ru.zidan.rbpo.dto.UserAccessRequest;
 import ru.zidan.rbpo.service.UserService;
 
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class UserController {
@@ -32,6 +35,7 @@ public class UserController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<User> create(@RequestBody User user) {
         var error = userService.checkCreate(user);
         if (error != null) {
@@ -42,6 +46,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<User> update(@PathVariable Long id, @RequestBody User user) {
         if (userService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -55,6 +60,7 @@ public class UserController {
 
     // /api/users/1
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole(\'ADMIN\')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (userService.getById(id) == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -65,5 +71,18 @@ public class UserController {
         }
         userService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/access")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<User> access(@PathVariable Long id, @RequestBody UserAccessRequest data) {
+        if (userService.getById(id) == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String role = data.getRole();
+        if (role != null && !role.equals("USER") && !role.equals("ADMIN")) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok().body(userService.changeAccess(id, data));
     }
 }
